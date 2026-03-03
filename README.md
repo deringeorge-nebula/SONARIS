@@ -114,7 +114,7 @@ flowchart TD
 
 ## 📦 Modules
 
-### Module 1 — Design Input Engine
+### Module 1 - Design Input Engine
 
 **What it does:** Provides a clean web interface (Streamlit) and Python API for ingesting all parameters that define a ship's acoustic profile at the design stage.
 
@@ -126,7 +126,7 @@ flowchart TD
 
 ---
 
-### Module 2 — URN Prediction Core (Hybrid AI + Physics)
+### Module 2 - URN Prediction Core (Hybrid AI + Physics)
 
 **What it does:** The scientific heart of SONARIS. Produces a full 1/3-octave band underwater radiated noise spectrum from 20 Hz to 20 kHz, covering the complete frequency range relevant to both IMO compliance and marine mammal biology.
 
@@ -141,7 +141,7 @@ flowchart TD
 
 ---
 
-### Module 3 — IMO Compliance Checker
+### Module 3 - IMO Compliance Checker
 
 **What it does:** Automatically evaluates the predicted URN spectrum against the vessel-type-specific noise targets in IMO MEPC.1/Circ.906 Rev.1 (2024) and generates a formatted compliance report.
 
@@ -153,7 +153,7 @@ flowchart TD
 
 ---
 
-### Module 4 — Marine Bioacoustic Impact Module *(Core Differentiator)*
+### Module 4 - Marine Bioacoustic Impact Module *(Core Differentiator)*
 
 **What it does:** Maps the predicted ship noise spectrum onto the hearing sensitivity and communication frequency ranges of five marine mammal functional hearing groups and produces a quantitative Biological Interference Score (BIS) for each group.
 
@@ -169,7 +169,7 @@ flowchart TD
 
 ---
 
-### Module 5 — Mitigation Recommendation Engine
+### Module 5 - Mitigation Recommendation Engine
 
 **What it does:** Takes the compliance gaps and biological impact scores and generates a prioritized set of design and operational modifications to bring the vessel into compliance and reduce ecological harm.
 
@@ -181,7 +181,7 @@ flowchart TD
 
 ---
 
-### Module 6 — Open URN Database
+### Module 6 - Open URN Database
 
 **What it does:** Hosts the world's first open-source, community-contributed database of ship underwater acoustic signatures, searchable by vessel type, propulsion system, speed, and frequency band.
 
@@ -209,7 +209,7 @@ flowchart TD
 
 ## 🗺️ Roadmap
 
-### Phase 0 — Foundation *(Current)*
+### Phase 0 - Foundation *(Current)*
 - [x] Project architecture designed and documented
 - [x] Technical stack selected and validated
 - [x] Dataset sources identified (ShipsEar, QiandaoEar22, IMO guidelines, audiograms)
@@ -218,7 +218,7 @@ flowchart TD
 - [ ] Development environment configured (OpenFOAM, PyTorch, Streamlit)
 - [ ] Core data pipeline: raw hydrophone audio to 1/3-octave spectrum
 
-### Phase 1 — URN Prediction Core *(Q2 2025)*
+### Phase 1 - URN Prediction Core *(Q2 2025)*
 - [ ] Physics layer: OpenFOAM + libAcoustics propeller noise simulation pipeline
 - [ ] AI layer: 1D-CNN + LSTM model trained on ShipsEar dataset
 - [ ] MFCC feature extraction pipeline for ship audio signatures
@@ -227,7 +227,7 @@ flowchart TD
 - [ ] Module 1 (Design Input Engine) — Streamlit UI v1.0
 - [ ] Module 2 (URN Prediction Core) — Python API v1.0
 
-### Phase 2 — Compliance + Bioacoustics *(Q3 2025)*
+### Phase 2 - Compliance + Bioacoustics *(Q3 2025)*
 - [ ] Module 3 (IMO Compliance Checker) — Full MEPC.1/Circ.906 Rev.1 rule set implemented
 - [ ] Downloadable PDF compliance report generation
 - [ ] Module 4 (Bioacoustic Impact) — Five functional hearing group audiogram integration
@@ -236,7 +236,7 @@ flowchart TD
 - [ ] Harmonic overlap analysis engine
 - [ ] Module 5 (Mitigation Engine) — v1.0 recommendation set
 
-### Phase 3 — Community + Scale *(Q4 2025 to 2026)*
+### Phase 3 - Community + Scale *(Q4 2025 to 2026)*
 - [ ] Module 6 (Open URN Database) — Public launch with seed data
 - [ ] Community contribution pipeline with data quality validation
 - [ ] REST API for programmatic access to all modules
@@ -371,13 +371,13 @@ SONARIS is built on the belief that the best solutions to global environmental p
 
 ### Who We Need
 
-- **Naval Architects and Marine Engineers** — Help validate hull-propeller acoustic models and expand the design parameter space
-- **Underwater Acousticians** — Challenge and improve the URN prediction methodology; contribute measured data
-- **Marine Biologists and Bioacousticians** — Improve species audiogram integration, validate BIS scoring, expand species coverage
-- **Machine Learning Engineers** — Improve model architecture, training pipelines, and uncertainty quantification
-- **Oceanographers** — Help incorporate propagation environment (depth, temperature, salinity) into URN spread modeling
-- **Software Engineers** — API design, database architecture, performance optimization, testing infrastructure
-- **Data Scientists** — Feature engineering, exploratory analysis of URN datasets, model benchmarking
+- **Naval Architects and Marine Engineers** - Help validate hull-propeller acoustic models and expand the design parameter space
+- **Underwater Acousticians** - Challenge and improve the URN prediction methodology; contribute measured data
+- **Marine Biologists and Bioacousticians** - Improve species audiogram integration, validate BIS scoring, expand species coverage
+- **Machine Learning Engineers** - Improve model architecture, training pipelines, and uncertainty quantification
+- **Oceanographers** - Help incorporate propagation environment (depth, temperature, salinity) into URN spread modeling
+- **Software Engineers** - API design, database architecture, performance optimization, testing infrastructure
+- **Data Scientists** - Feature engineering, exploratory analysis of URN datasets, model benchmarking
 
 ### How to Contribute
 
