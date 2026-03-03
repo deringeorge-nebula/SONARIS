@@ -1,217 +1,363 @@
-# SONARIS Project Architecture
+# SONARIS System Architecture
 
-**Full Name:** Ship-Ocean Noise Acoustic Radiated Intelligence System  
-**License:** MIT  
-**Python:** 3.10+
+This document describes the technical structure of the SONARIS codebase, the
+purpose of every file in the repository, the data flow between modules, and
+the design decisions made during Phase 0 setup. It serves as the primary
+reference for contributors onboarding to the project and will be cited in the
+SONARIS research paper as the system architecture reference.
 
-This document describes the complete folder structure of the SONARIS repository and the intended contents of every file.
+The six core modules form a linear processing pipeline: user-supplied vessel
+parameters enter Module 1 and are progressively transformed into an acoustic
+spectrum (Module 2), a compliance verdict (Module 3), a biological impact score
+(Module 4), and a set of mitigation recommendations (Module 5). Every record
+produced or consumed by this pipeline can optionally be written to or read from
+the Open URN Database (Module 6). No module performs computation before the
+previous module's output is available, which keeps the data contract between
+modules explicit and testable.
 
 ---
 
-## Folder Tree
-
+## Repository Tree
 ```
-sonaris/
-|
-|-- app.py                          # Streamlit entry point; assembles all module UIs into one application
-|-- requirements.txt                # All Python dependencies, pinned with minimum version constraints
-|-- .env.example                    # Template for environment variables (database path, API keys, debug flags)
-|-- .gitignore                      # Ignores venv, __pycache__, .env, model weights, large data files
-|-- LICENSE                         # MIT License text
-|-- README.md                       # Project overview, architecture summary, setup instructions
-|-- CONTRIBUTING.md                 # Contribution guidelines: code standards, PR process, scientific validation
-|-- CHANGELOG.md                    # Version history and release notes
-|
-|-- docs/
-|   |-- architecture.md             # This file: folder structure and per-file descriptions
-|   |-- methodology.md              # Scientific methodology: FW-H equation, MFCC application, BIS scoring
-|   |-- imo_guidelines.md           # Summary of IMO MEPC.1/Circ.906 Rev.1 (2024) limits used in Module 3
-|   |-- datasets.md                 # Dataset descriptions, download instructions, and citation information
-|   |-- api_reference.md            # Python API reference for headless use of each module
-|   |-- deployment.md               # Instructions for deploying to Hugging Face Spaces and Streamlit Cloud
-|
-|-- sonaris/                        # Main Python package
-|   |-- __init__.py                 # Package init; exposes URNPredictor, ComplianceChecker, BioacousticImpact
-|   |
-|   |-- module1_input/              # Module 1: Design Input Engine
-|   |   |-- __init__.py
-|   |   |-- input_schema.py         # Pydantic models defining and validating all vessel input parameters
-|   |   |-- input_ui.py             # Streamlit UI component for Module 1: form fields, units, help tooltips
-|   |   |-- parameter_utils.py      # Derived parameter calculations (e.g. advance ratio J from RPM and speed)
-|   |   |-- validators.py           # Range checks and cross-parameter validation (e.g. propeller diameter vs draft)
-|   |
-|   |-- module2_urn/                # Module 2: URN Prediction Core
-|   |   |-- __init__.py
-|   |   |-- predictor.py            # Main URNPredictor class: orchestrates physics and AI layers, returns spectrum
-|   |   |-- physics_layer.py        # OpenFOAM run management and libAcoustics FW-H post-processing wrapper
-|   |   |-- ai_layer.py             # Loads trained model, runs inference, returns residual correction to physics output
-|   |   |-- feature_engineering.py  # MFCC extraction, spectral envelope fitting, 1/3-octave band aggregation
-|   |   |-- model_architecture.py   # PyTorch definition of the 1D-CNN + LSTM URN prediction network
-|   |   |-- train.py                # Training script: data loading, loss function, optimizer, checkpoint saving
-|   |   |-- evaluate.py             # Evaluation script: computes per-band MAE, RMSE against held-out test set
-|   |   |-- uncertainty.py          # Monte Carlo dropout for prediction confidence interval estimation
-|   |   |-- spectrum_utils.py       # Conversion utilities: Pa to dB, 1/1-octave to 1/3-octave, frequency array generation
-|   |
-|   |-- module3_compliance/         # Module 3: IMO Compliance Checker
-|   |   |-- __init__.py
-|   |   |-- checker.py              # ComplianceChecker class: loads limits, compares spectrum, returns verdict per band
-|   |   |-- imo_limits.py           # Hard-coded URN limits from MEPC.1/Circ.906 Rev.1 by vessel type and frequency band
-|   |   |-- report_generator.py     # Builds the downloadable PDF compliance report using ReportLab
-|   |   |-- compliance_ui.py        # Streamlit UI component: compliance bar chart, pass/fail table, download button
-|   |
-|   |-- module4_bioacoustics/       # Module 4: Marine Bioacoustic Impact Module
-|   |   |-- __init__.py
-|   |   |-- impact_scorer.py        # BioacousticImpact class: computes BIS per species group from input spectrum
-|   |   |-- audiograms.py           # Digitized hearing sensitivity curves for all 5 functional hearing groups
-|   |   |-- masking_model.py        # Psychoacoustic masking model: excitation patterns, masking threshold calculation
-|   |   |-- harmonic_overlap.py     # Finds ship tonal peaks within +/- 1/3 octave of published species call frequencies
-|   |   |-- species_calls.py        # Published frequency ranges for vocalizations of each target species group
-|   |   |-- bis_scoring.py          # BIS formula: integrates masked proportion of species frequency range (0-100 scale)
-|   |   |-- bioacoustics_ui.py      # Streamlit UI: spectrogram overlay, BIS gauges, species selection panel
-|   |
-|   |-- module5_mitigation/         # Module 5: Mitigation Recommendation Engine
-|   |   |-- __init__.py
-|   |   |-- recommender.py          # MitigationRecommender class: takes compliance gaps and BIS, returns ranked actions
-|   |   |-- speed_optimizer.py      # Predicts URN reduction as a function of speed reduction for given vessel type
-|   |   |-- propeller_advisor.py    # Maps compliance gap magnitude to specific propeller geometry modification targets
-|   |   |-- hull_treatment.py       # Recommends hull panel damping treatments based on dominant tonal frequencies
-|   |   |-- routing_advisor.py      # Generates routing avoidance polygons around marine protected areas and known habitats
-|   |   |-- mitigation_ui.py        # Streamlit UI: ranked recommendation cards with estimated dB reduction per action
-|   |
-|   |-- module6_database/           # Module 6: Open URN Database
-|   |   |-- __init__.py
-|   |   |-- models.py               # SQLAlchemy ORM models: Ship, URNRecord, Submission, UserContribution
-|   |   |-- database.py             # Database engine setup, session factory, connection handling
-|   |   |-- crud.py                 # Create, read, update, delete operations for all database tables
-|   |   |-- submission_pipeline.py  # Validates, normalizes, and ingests community-submitted URN records
-|   |   |-- quality_control.py      # Checks submissions against ShipsEar/QiandaoEar22 baseline distributions
-|   |   |-- search.py               # Query functions: filter by vessel type, speed, frequency band, submission date
-|   |   |-- database_ui.py          # Streamlit UI: search interface, submission form, record detail view
-|   |   |-- migrations/             # Alembic migration scripts directory
-|   |       |-- env.py              # Alembic environment configuration
-|   |       |-- versions/           # Auto-generated migration version files go here
-|   |
-|   |-- shared/                     # Shared utilities used by more than one module
-|       |-- __init__.py
-|       |-- constants.py            # Physical constants, frequency band definitions, species group identifiers
-|       |-- logging_config.py       # Loguru logger configuration applied consistently across all modules
-|       |-- config.py               # Loads and exposes .env and config.yaml settings to all modules
-|       |-- file_utils.py           # Helpers for reading/writing WAV, CSV, JSON, and HDF5 files
-|       |-- plot_utils.py           # Shared Matplotlib/Plotly helper functions for consistent chart styling
-|
-|-- models/                         # Trained model weights and metadata (git-ignored for large files)
-|   |-- urn_predictor_v1.pt         # Saved PyTorch model checkpoint after initial training run
-|   |-- urn_predictor_v1_meta.json  # Training metadata: dataset split, hyperparameters, validation metrics
-|
-|-- data/                           # Local data storage (git-ignored except for structure and seed files)
-|   |-- raw/                        # Raw downloaded datasets, unmodified
-|   |   |-- shipsear/               # ShipsEar dataset audio files and metadata
-|   |   |-- qiandaoear22/           # QiandaoEar22 dataset audio files and metadata
-|   |   |-- audiograms/             # Published audiogram CSVs per species group
-|   |
-|   |-- processed/                  # Preprocessed features ready for model training
-|   |   |-- mfcc_features.h5        # Extracted MFCC feature matrix for all training samples
-|   |   |-- octave_spectra.h5       # 1/3-octave spectra computed from all training audio files
-|   |   |-- labels.csv              # Vessel type labels and metadata for each training sample
-|   |
-|   |-- seed/                       # Small seed data committed to the repository
-|       |-- imo_limits.json         # IMO MEPC.1/Circ.906 Rev.1 limit tables in machine-readable form
-|       |-- species_audiograms.json # Digitized audiogram data for all 5 functional hearing groups
-|       |-- species_calls.json      # Published vocalization frequency ranges per species group
-|
-|-- notebooks/                      # Research and development notebooks
-|   |-- 01_dataset_exploration.ipynb       # Initial exploration of ShipsEar and QiandaoEar22 distributions
-|   |-- 02_feature_engineering.ipynb       # MFCC pipeline development and 1/3-octave band analysis
-|   |-- 03_model_training.ipynb            # URN prediction model training experiments and loss curves
-|   |-- 04_compliance_validation.ipynb     # Verification of compliance checker against known test cases
-|   |-- 05_bioacoustic_analysis.ipynb      # BIS scoring development and masking model calibration
-|   |-- 06_mitigation_experiments.ipynb    # Speed-noise relationship analysis for mitigation module
-|   |-- 07_database_schema_design.ipynb    # URN database schema development and query prototyping
-|
-|-- scripts/                        # Standalone scripts for data preparation and model management
-|   |-- download_shipsear.py        # Downloads ShipsEar dataset from source and places it in data/raw/shipsear/
-|   |-- download_qiandaoear.py      # Downloads QiandaoEar22 dataset and places it in data/raw/qiandaoear22/
-|   |-- preprocess_audio.py         # Runs full audio-to-features pipeline and writes to data/processed/
-|   |-- train_model.py              # CLI wrapper around module2_urn/train.py for scheduled training runs
-|   |-- export_model.py             # Exports trained model to ONNX format for deployment environments
-|   |-- init_database.py            # Creates database schema and loads seed data on first setup
-|   |-- seed_database.py            # Populates URN database with curated example records for demonstration
-|
-|-- tests/                          # Test suite
-|   |-- __init__.py
-|   |-- conftest.py                 # Shared pytest fixtures: sample vessel parameters, synthetic spectra, db session
-|   |
-|   |-- test_module1/
-|   |   |-- test_input_schema.py    # Tests that valid and invalid vessel parameter inputs are handled correctly
-|   |   |-- test_validators.py      # Tests for all cross-parameter validation rules
-|   |
-|   |-- test_module2/
-|   |   |-- test_feature_engineering.py   # Tests MFCC output shape, 1/3-octave band count, and numerical stability
-|   |   |-- test_model_architecture.py    # Tests model forward pass shape and output range
-|   |   |-- test_spectrum_utils.py        # Tests dB conversion, band aggregation, and frequency array generation
-|   |
-|   |-- test_module3/
-|   |   |-- test_checker.py         # Tests compliance verdicts against known pass and fail spectra
-|   |   |-- test_report_generator.py  # Tests PDF generation and checks that required sections are present
-|   |
-|   |-- test_module4/
-|   |   |-- test_masking_model.py   # Tests masking threshold outputs against published psychoacoustic reference values
-|   |   |-- test_bis_scoring.py     # Tests BIS edge cases: zero noise, full masking, single frequency input
-|   |
-|   |-- test_module5/
-|   |   |-- test_recommender.py     # Tests that recommendations are ranked and non-empty for all compliance scenarios
-|   |   |-- test_speed_optimizer.py # Tests speed-to-noise reduction curve against known ship data
-|   |
-|   |-- test_module6/
-|       |-- test_crud.py            # Tests all database read and write operations against an in-memory SQLite instance
-|       |-- test_quality_control.py # Tests rejection of out-of-distribution and malformed URN submissions
-|
-|-- config/
-    |-- config.yaml                 # Default configuration: model paths, database URL, logging level, band definitions
-    |-- logging.yaml                # Loguru handler configuration for file and console output
+SONARIS/
+├── app.py
+├── requirements.txt
+├── README.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+├── CHANGELOG.md
+├── .env.example
+├── .gitignore
+├── config/
+│   └── settings.py
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── databases/
+├── modules/
+│   ├── __init__.py
+│   ├── input_engine/
+│   │   ├── __init__.py
+│   │   └── design_input.py
+│   ├── urn_prediction/
+│   │   ├── __init__.py
+│   │   ├── physics_layer.py
+│   │   └── ai_layer.py
+│   ├── imo_compliance/
+│   │   ├── __init__.py
+│   │   └── compliance_checker.py
+│   ├── bioacoustic/
+│   │   ├── __init__.py
+│   │   ├── audiogram_data.py
+│   │   └── bis_calculator.py
+│   ├── mitigation/
+│   │   ├── __init__.py
+│   │   └── recommender.py
+│   └── urn_database/
+│       ├── __init__.py
+│       └── db_manager.py
+├── models/
+│   ├── trained/
+│   └── architectures/
+├── notebooks/
+│   └── 01_ShipsEar_EDA.ipynb
+├── tests/
+│   ├── __init__.py
+│   └── test_modules.py
+├── docs/
+│   ├── architecture.md
+│   ├── api_reference.md
+│   └── research_notes.md
+├── ui/
+│   ├── pages/
+│   └── components/
+└── .github/
+    ├── pull_request_template.md
+    ├── workflows/
+    │   └── tests.yml
+    └── ISSUE_TEMPLATE/
+        ├── bug_report.md
+        ├── feature_request.md
+        └── data_contribution.md
 ```
 
 ---
 
-## File Count Summary
+## Per-File Descriptions
 
-| Directory | Files |
-|---|---|
-| Root | 8 |
-| docs/ | 6 |
-| sonaris/ (package) | 52 |
-| models/ | 2 |
-| data/ | 9 |
-| notebooks/ | 7 |
-| scripts/ | 8 |
-| tests/ | 17 |
-| config/ | 2 |
-| **Total** | **111** |
+### Root
+
+**app.py:** Entry point for the Streamlit application. Initialises the UI, routes
+user interactions to the appropriate module calls, and renders output visualizations.
+
+**requirements.txt:** Pinned list of all Python dependencies for the project.
+Used by both local development setup and CI.
+
+**README.md:** Public-facing project overview covering installation, usage, module
+descriptions, and contribution instructions.
+
+**CONTRIBUTING.md:** Contribution guide covering branch naming, commit conventions,
+code style requirements, and the PR review process.
+
+**CODE_OF_CONDUCT.md:** Contributor Covenant code of conduct for the SONARIS
+open-source community.
+
+**CHANGELOG.md:** Versioned log of all changes to the project, following Keep a
+Changelog format.
+
+**.env.example:** Template of all required environment variables with placeholder
+values. Actual `.env` file is never committed.
+
+**.gitignore:** Specifies files and directories excluded from version control,
+including `.env`, trained model weights, raw datasets, and Python cache files.
+
+### config/
+
+**settings.py:** Central configuration for the application: database paths, model
+paths, default operational parameters, and environment variable loading.
+
+### data/
+
+**raw/:** Storage directory for unprocessed source datasets (ShipsEar,
+QiandaoEar22). Not committed to version control.
+
+**processed/:** Storage directory for cleaned and feature-extracted datasets
+ready for model training or evaluation.
+
+**databases/:** Storage directory for the SQLite development database file.
+
+### modules/
+
+**modules/\_\_init\_\_.py:** Top-level package initialiser for the modules namespace.
+Does not execute computation on import.
+
+#### modules/input_engine/
+
+**\_\_init\_\_.py:** Package initialiser for the Design Input Engine module.
+
+**design_input.py:** Validates and structures all user-supplied vessel parameters
+(hull coefficients, propeller geometry, engine type, speed) into a standardised
+`VesselParameters` dataclass passed downstream.
+
+#### modules/urn_prediction/
+
+**\_\_init\_\_.py:** Package initialiser for the URN Prediction Core module.
+
+**physics_layer.py:** Interfaces with OpenFOAM and libAcoustics to run
+propeller cavitation simulations and extract the physics-based component of the
+noise spectrum.
+
+**ai_layer.py:** Loads the trained PyTorch neural network, runs inference on
+the structured vessel parameters, and returns a predicted 1/3-octave band
+spectrum in dB re 1 μPa at 1 m.
+
+#### modules/imo_compliance/
+
+**\_\_init\_\_.py:** Package initialiser for the IMO Compliance Checker module.
+
+**compliance_checker.py:** Compares the predicted URN spectrum against the
+vessel-type-specific limit tables from IMO MEPC.1/Circ.906 Rev.1 (2024) and
+returns a structured `ComplianceResult` with per-band pass/fail flags.
+
+#### modules/bioacoustic/
+
+**\_\_init\_\_.py:** Package initialiser for the Marine Bioacoustic Impact Module.
+
+**audiogram_data.py:** Contains the published audiogram sensitivity curves for
+five marine mammal functional hearing groups: low-frequency cetaceans, mid-frequency
+cetaceans, high-frequency cetaceans, phocid pinnipeds in water, and otariid pinnipeds
+in water.
+
+**bis_calculator.py:** Applies MFCC decomposition and spectral masking analysis
+to quantify the overlap between the ship noise spectrum and each species group's
+hearing sensitivity range, producing a Biological Interference Score per group.
+
+#### modules/mitigation/
+
+**\_\_init\_\_.py:** Package initialiser for the Mitigation Recommendation Engine.
+
+**recommender.py:** Receives upstream outputs (URN spectrum, compliance result,
+BIS scores) and generates ranked mitigation recommendations with estimated noise
+reduction in dB for each option.
+
+#### modules/urn_database/
+
+**\_\_init\_\_.py:** Package initialiser for the Open URN Database module.
+
+**db_manager.py:** Handles all database operations: schema initialisation, record
+insertion, querying by vessel type or frequency band, and export to JSON or CSV.
+
+### models/
+
+**trained/:** Storage directory for serialised trained model weights (`.pt` files).
+Not committed to version control.
+
+**architectures/:** Python files defining the PyTorch neural network architectures
+used in Module 2.
+
+### notebooks/
+
+**01_ShipsEar_EDA.ipynb:** Exploratory data analysis notebook for the ShipsEar
+dataset. Covers class distribution, spectrogram inspection, signal-to-noise
+assessment, and feature extraction prototyping.
+
+### tests/
+
+**tests/\_\_init\_\_.py:** Makes the tests directory a Python package.
+
+**test_modules.py:** pytest test suite covering unit tests for all six modules.
+Integration tests covering the full pipeline are added here as modules mature.
+
+### docs/
+
+**architecture.md:** This file. Technical reference for the repository structure,
+data flow, module interfaces, and design decisions.
+
+**api_reference.md:** Auto-generated or manually maintained documentation of all
+public functions and classes across the six modules.
+
+**research_notes.md:** Running scientific journal for the project. Logs dataset
+assessments, methodology decisions, and literature references that feed into the
+eventual SONARIS research paper.
+
+### ui/
+
+**pages/:** Streamlit multi-page app files, one per major UI view.
+
+**components/:** Reusable Streamlit UI components shared across pages.
+
+### .github/
+
+**pull_request_template.md:** Template automatically loaded when a contributor
+opens a pull request, including the pre-merge checklist and scientific basis
+section.
+
+**workflows/tests.yml:** GitHub Actions workflow that runs the pytest test suite
+on every push and every pull request targeting main.
+
+**ISSUE_TEMPLATE/bug_report.md:** Structured template for reporting bugs.
+
+**ISSUE_TEMPLATE/feature_request.md:** Structured template for proposing new
+features.
+
+**ISSUE_TEMPLATE/data_contribution.md:** Structured template for contributing
+URN measurement records to the Open URN Database.
 
 ---
 
-## Module to Directory Mapping
+## Data Flow
 
-| Module | Directory |
-|---|---|
-| Module 1: Design Input Engine | `sonaris/module1_input/` |
-| Module 2: URN Prediction Core | `sonaris/module2_urn/` |
-| Module 3: IMO Compliance Checker | `sonaris/module3_compliance/` |
-| Module 4: Marine Bioacoustic Impact | `sonaris/module4_bioacoustics/` |
-| Module 5: Mitigation Recommendation Engine | `sonaris/module5_mitigation/` |
-| Module 6: Open URN Database | `sonaris/module6_database/` |
-| Shared Utilities | `sonaris/shared/` |
+1. The user supplies vessel parameters through the Streamlit UI or directly via
+   the Python API. Inputs include hull form coefficients (Cb, Cp, L/B ratio),
+   propeller geometry (blade count, pitch ratio, diameter), engine type, rated
+   RPM, and operational speed in knots.
+
+2. **Module 1 (Design Input Engine)** validates all inputs, applies physical
+   plausibility checks, and packages them into a `VesselParameters` dataclass.
+   This object is the sole input passed to Module 2.
+
+3. **Module 2 (URN Prediction Core)** receives the `VesselParameters` object.
+   The physics layer optionally runs an OpenFOAM simulation to produce a
+   physics-derived partial spectrum. The AI layer runs the trained PyTorch
+   model to produce a data-driven full spectrum. The two layers are fused into
+   a single `URNSpectrum` object: a dict mapping each 1/3-octave band center
+   frequency (Hz) to a level in dB re 1 μPa at 1 m.
+
+4. **Module 3 (IMO Compliance Checker)** receives the `URNSpectrum` and the
+   vessel type string from `VesselParameters`. It returns a `ComplianceResult`
+   object containing a per-band pass/fail dict, an overall compliance flag, and
+   the reference limit values used for comparison.
+
+5. **Module 4 (Marine Bioacoustic Impact Module)** receives the `URNSpectrum`.
+   It applies MFCC decomposition across the spectrum and computes spectral overlap
+   against each of the five audiogram curves. It returns a `BISResult` object:
+   a dict mapping each marine mammal group name to its Biological Interference
+   Score (0 to 100) and the frequency bands driving the interference.
+
+6. **Module 5 (Mitigation Recommendation Engine)** receives the `URNSpectrum`,
+   the `ComplianceResult`, and the `BISResult`. It returns a ranked list of
+   `MitigationRecommendation` objects, each containing a description, the
+   expected noise reduction in dB, and the applicable species groups or
+   frequency bands.
+
+7. All outputs can optionally be written to **Module 6 (Open URN Database)** as
+   a structured record containing vessel metadata, measurement conditions, and
+   the full `URNSpectrum`. Records are also queryable from the database to
+   populate the community dataset.
 
 ---
 
-## Key Design Decisions
+## Module Interfaces
 
-**Single package, modular internals.** All six modules live inside the `sonaris/` package. This means the Python API (`from sonaris import URNPredictor`) works without any knowledge of the internal module structure, while the internals remain cleanly separated.
+**Module 1: Design Input Engine**
+Input: Raw user-supplied values via form or dict. Hull coefficients, propeller
+geometry, engine type, RPM, speed in knots.
+Output: `VesselParameters` dataclass with validated and typed fields.
+Key dependencies: `pydantic` or `dataclasses`, `scipy` for range validation.
 
-**Seed data is version-controlled; raw audio is not.** The `data/seed/` directory (IMO limits, audiograms, species call ranges) is committed to the repository so the tool works out of the box. Raw audio datasets are large and externally hosted; the download scripts in `scripts/` handle retrieval.
+**Module 2: URN Prediction Core**
+Input: `VesselParameters` dataclass.
+Output: `URNSpectrum` — dict mapping 1/3-octave band center frequencies (Hz)
+to levels in dB re 1 μPa at 1 m, covering 20 Hz to 20 kHz.
+Key dependencies: `torch`, `numpy`, `scipy`, OpenFOAM CLI (optional physics layer).
 
-**Model weights are not committed.** Trained `.pt` files live in `models/` which is git-ignored. The `scripts/train_model.py` script reproduces them from the processed dataset. A pre-trained checkpoint will be hosted separately on Hugging Face Hub.
+**Module 3: IMO Compliance Checker**
+Input: `URNSpectrum`, vessel type string.
+Output: `ComplianceResult` — overall pass/fail flag, per-band results, limit
+values from IMO MEPC.1/Circ.906 Rev.1 (2024).
+Key dependencies: Internal lookup tables encoding IMO limit values by vessel type.
 
-**Migrations directory is tracked.** The `sonaris/module6_database/migrations/` directory and its `env.py` are committed. Individual migration version files are generated by Alembic as the schema evolves and should also be committed.
+**Module 4: Marine Bioacoustic Impact Module**
+Input: `URNSpectrum`.
+Output: `BISResult` — per-species-group Biological Interference Score and
+contributing frequency band list. Spectrogram overlay data for visualization.
+Key dependencies: `librosa`, `scipy.signal`, `numpy`, `matplotlib`.
 
-**One UI file per module.** Each module has a `_ui.py` file that defines its Streamlit component as a callable function. `app.py` imports and assembles these into a single multi-page application. This keeps UI logic out of the scientific core.
+**Module 5: Mitigation Recommendation Engine**
+Input: `URNSpectrum`, `ComplianceResult`, `BISResult`.
+Output: List of `MitigationRecommendation` objects ranked by expected dB
+reduction.
+Key dependencies: Internal rule engine and lookup tables. No external ML.
+
+**Module 6: Open URN Database**
+Input (write): Vessel metadata dict + `URNSpectrum` + measurement conditions dict.
+Input (read): Query parameters (vessel type, IMO number, frequency range, date range).
+Output (read): List of matching database records as dicts or Pandas DataFrames.
+Key dependencies: `sqlite3` (development), `psycopg2` (production), `pandas`.
+
+---
+
+## Design Decisions
+
+**1. mSOUND removed from pip, manual source integration planned for Phase 3.**
+mSOUND is not available as a pip-installable package compatible with the project's
+Python environment. Rather than vendor an untested integration in Phase 0, the
+physics simulation layer is scoped to OpenFOAM plus libAcoustics for Phases 1 and 2.
+mSOUND will be integrated manually from source in Phase 3 once the core pipeline
+is stable.
+
+**2. pyaudio and spectrum removed due to Python 3.14 wheel unavailability.**
+Neither `pyaudio` nor `spectrum` publish binary wheels for Python 3.14 on Windows
+as of Phase 0. Both would require a local C++ build toolchain. All audio processing
+and spectral estimation needed for the MFCC pipeline is available through `librosa`
+and `scipy.signal`, which do provide 3.14-compatible wheels. The two packages were
+removed from `requirements.txt` with no loss of required functionality.
+
+**3. MFCC pipeline uses librosa and scipy only.**
+The bioacoustic masking and MFCC analysis in Module 4 are implemented entirely
+with `librosa` for feature extraction and `scipy.signal` for spectral processing.
+This keeps the dependency count low, avoids binary-only packages, and gives full
+access to the intermediate signal representations needed for the BIS calculation.
+
+**4. CI uses Python 3.11 while local development uses Python 3.14.**
+GitHub Actions Ubuntu runners have stable binary wheel availability for all SONARIS
+dependencies on Python 3.11. Python 3.14 is used locally on Windows because it is
+the active development environment, but forcing 3.14 in CI would require compiling
+several packages from source and would make CI fragile. The API surface used by
+SONARIS does not differ between 3.11 and 3.14 for any dependency in scope.
+
+**5. SQLite used for development, PostgreSQL targeted for production.**
+SQLite requires no server process and works identically across all developer
+machines. The `db_manager.py` abstraction layer uses SQLAlchemy-compatible
+connection strings so that switching to PostgreSQL in production requires changing
+one configuration value, not the query logic.
