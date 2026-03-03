@@ -1,0 +1,142 @@
+# =============================================================================
+# SONARIS - Ship-Ocean Noise Acoustic Radiated Intelligence System
+# requirements.txt
+# =============================================================================
+# Pin strategy: minimum stable versions that are mutually compatible.
+# Tested on Python 3.10+. Use a virtual environment.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Core Scientific Computing
+# -----------------------------------------------------------------------------
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0                  # signal processing, FFT, spectral analysis
+h5py>=3.8.0                    # reading/writing HDF5 files for large acoustic datasets
+
+
+# -----------------------------------------------------------------------------
+# Audio and Acoustic Processing
+# -----------------------------------------------------------------------------
+librosa>=0.10.0                # MFCC extraction, 1/3-octave analysis, spectral features
+soundfile>=0.12.1              # reading WAV/FLAC hydrophone recordings (libsndfile backend)
+audioread>=3.0.0               # fallback audio decoding backend for librosa
+resampy>=0.4.2                 # high-quality audio resampling used internally by librosa
+sounddevice>=0.4.6      # live audio capture for future real-time hydrophone input
+
+# -----------------------------------------------------------------------------
+# Machine Learning and Deep Learning
+# -----------------------------------------------------------------------------
+torch>=2.0.0                   # primary deep learning framework (1D-CNN + LSTM URN model)
+torchvision>=0.15.0            # image transforms for spectrogram-based model inputs
+torchaudio>=2.0.0              # audio processing ops that integrate with torch pipelines
+scikit-learn>=1.3.0            # classical ML, feature scaling, cross-validation, metrics
+joblib>=1.3.0                  # model serialization and parallel processing
+optuna>=3.2.0                  # hyperparameter optimization for the URN prediction model
+torchmetrics>=1.0.0            # standardized metrics for PyTorch model evaluation
+
+
+# -----------------------------------------------------------------------------
+# Signal Processing and Acoustics
+# -----------------------------------------------------------------------------
+PyWavelets>=1.4.1              # wavelet transforms for multi-resolution acoustic analysis
+acoustics>=0.2.0               # 1/3-octave band filters, dB conversions, acoustic utilities
+
+
+# -----------------------------------------------------------------------------
+# Visualization
+# -----------------------------------------------------------------------------
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.15.0                 # interactive spectrograms and compliance charts in the UI
+kaleido>=0.2.1                 # static image export for Plotly (used in PDF reports)
+
+
+# -----------------------------------------------------------------------------
+# Web UI
+# -----------------------------------------------------------------------------
+streamlit>=1.25.0
+streamlit-option-menu>=0.3.6   # sidebar navigation component for multi-module UI
+streamlit-plotly-events>=0.0.6 # click events on Plotly charts inside Streamlit
+
+
+# -----------------------------------------------------------------------------
+# Database and ORM
+# -----------------------------------------------------------------------------
+sqlalchemy>=2.0.0              # ORM layer over SQLite (dev) and PostgreSQL (prod)
+alembic>=1.11.0                # database migration management as schema evolves
+psycopg2-binary>=2.9.6         # PostgreSQL adapter for production deployment
+# sqlite3 is included in Python stdlib, no install needed
+
+
+# -----------------------------------------------------------------------------
+# PDF Report Generation
+# -----------------------------------------------------------------------------
+reportlab>=4.0.0               # IMO compliance report generation (full layout control)
+fpdf2>=2.7.4                   # lightweight fallback PDF generation if needed
+
+
+# -----------------------------------------------------------------------------
+# Data Validation and Configuration
+# -----------------------------------------------------------------------------
+pydantic>=2.0.0                # input validation for vessel parameter objects in Module 1
+python-dotenv>=1.0.0           # loads .env config (database URLs, API keys, paths)
+pyyaml>=6.0                    # config files for model hyperparameters and module settings
+marshmallow>=3.20.0            # schema serialization for URN database entries
+
+
+# -----------------------------------------------------------------------------
+# HTTP and External Data
+# -----------------------------------------------------------------------------
+requests>=2.31.0               # fetching external datasets, AIS data, IMO document URLs
+httpx>=0.24.0                  # async HTTP client for future AIS integration
+aiohttp>=3.8.5                 # async requests for concurrent data fetching
+
+
+# -----------------------------------------------------------------------------
+# Geospatial (Module 5 routing avoidance)
+# -----------------------------------------------------------------------------
+shapely>=2.0.0                 # geometric operations on marine protected area polygons
+pyproj>=3.6.0                  # coordinate reference system transformations
+folium>=0.14.0                 # interactive map rendering for routing avoidance overlays
+geopandas>=0.13.0              # spatial dataframes for shipping lane and MPA data
+
+
+# -----------------------------------------------------------------------------
+# Utilities
+# -----------------------------------------------------------------------------
+tqdm>=4.65.0                   # progress bars for dataset loading and model training
+loguru>=0.7.0                  # structured logging across all modules
+rich>=13.4.0                   # formatted console output during CLI runs
+click>=8.1.0                   # CLI interface for headless/batch SONARIS runs
+tenacity>=8.2.0                # retry logic for external data fetches
+
+
+# -----------------------------------------------------------------------------
+# Development and Jupyter Support
+# -----------------------------------------------------------------------------
+jupyter>=1.0.0
+jupyterlab>=4.0.0
+ipykernel>=6.23.0
+ipywidgets>=8.0.0              # interactive widgets in research notebooks
+nbconvert>=7.6.0               # exporting notebooks to HTML/PDF for documentation
+
+
+# -----------------------------------------------------------------------------
+# Testing
+# -----------------------------------------------------------------------------
+pytest>=7.4.0
+pytest-cov>=4.1.0              # coverage reporting
+pytest-mock>=3.11.0            # mocking for unit tests on audio I/O and model inference
+hypothesis>=6.82.0             # property-based testing for signal processing functions
+
+
+# -----------------------------------------------------------------------------
+# Code Quality
+# -----------------------------------------------------------------------------
+black>=23.7.0                  # code formatting
+isort>=5.12.0                  # import sorting
+flake8>=6.1.0                  # linting
+mypy>=1.4.0                    # static type checking
+pre-commit>=3.3.0              # git hooks to enforce formatting before commits
