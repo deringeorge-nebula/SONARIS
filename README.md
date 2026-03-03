@@ -1,3 +1,14 @@
+---
+title: SONARIS
+emoji: 🌊
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: "1.42.0"
+app_file: app.py
+python_version: "3.11"
+license: mit
+---
 <!-- SONARIS README.md -->
 
 <div align="center">
